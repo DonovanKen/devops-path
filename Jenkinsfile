@@ -1,3 +1,5 @@
+@Library('jenkins_shared_lib') _
+
 pipeline {
     agent any
     parameters {
@@ -16,68 +18,12 @@ pipeline {
                 script {
                     sh """
                         echo Build Docker Image
-                        docker build -t ${params.IMAGE_FRONTEND_NAME}:${params.IMAGE_TAG} AWS/project/python-three-tier-app/frontend/
-                        docker images            
+                        cd AWS/project/python-three-tier-app/frontend/            
                     """
+                    dockerBuild("${params.IMAGE_FRONTEND_NAME}", "${params.ACCOUNT_ID}", "${params.IMAGE_TAG}", "${params.AWS_REGION}", "${params.DOCKERHUB_USER}" )
                 }
                 
             }
         }
-        stage("Test d'acceptance") {
-            steps {
-                script {
-                    sh """
-                        echo Test acceptance
-
-                        docker run -d --name ${params.CONTAINER_NAME} ${params.IMAGE_FRONTEND_NAME}:${params.IMAGE_TAG}
-                        sleep 5
-                        export IP_CONTAINER=\$(docker inspect -f '{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}' ${params.CONTAINER_NAME})
-                        curl -I http://\$IP_CONTAINER:5000
-
-                        docker rm -f ${params.CONTAINER_NAME}
-                    """
-                }
-            }
-        }
-        stage("Push Docker Image on DockerHub") {
-            steps {
-                withCredentials([usernamePassword(credentialsId: 'dockerhub-cred', passwordVariable: 'DOCKERHUB_PASSWORD', usernameVariable: 'DOCKERHUB_USERNAME')]) {
-                    script {
-                    sh """
-                        echo Push Docker Image
-                        echo $DOCKERHUB_PASSWORD | docker login -u $DOCKERHUB_USERNAME --password-stdin
-                        docker tag ${params.IMAGE_FRONTEND_NAME}:${params.IMAGE_TAG} ${params.DOCKERHUB_USER}/${params.IMAGE_FRONTEND_NAME}:${params.IMAGE_TAG}
-                        docker push ${params.DOCKERHUB_USER}/${params.IMAGE_FRONTEND_NAME}:${params.IMAGE_TAG}
-                        docker logout
-                    """
-                    }   
-                }
-            }
-        }
-        stage("Push Docker Image on ECR") {
-            steps {
-                withCredentials([aws(accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'aws-credentials', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY')]) {
-                    script {
-                        sh """
-                            aws ecr get-login-password --region ${params.AWS_REGION} | docker login --username AWS --password-stdin ${params.ACCOUNT_ID}.dkr.ecr.${params.AWS_REGION}.amazonaws.com
-                            docker tag ${params.IMAGE_FRONTEND_NAME}:${params.IMAGE_TAG} ${params.ACCOUNT_ID}.dkr.ecr.${params.AWS_REGION}.amazonaws.com/my-ecr-repo:latest
-                            docker push ${params.ACCOUNT_ID}.dkr.ecr.${params.AWS_REGION}.amazonaws.com/my-ecr-repo:latest
-                        """
-                    }
-                }
-            }
-        }
-        stage("Deploy to ECS") {
-            steps {
-                withCredentials([aws(accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'aws-credentials', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY')]) {
-                    script {
-                        sh """
-                            aws ecs update-service --force-new-deployment --service my-ecs-service-poc-1 --task-definition my-task-definition-poc-1 --cluster my-ecs-cluster-poc
-                        """
-                    }
-                }
-            }
-        }
-
     }
 }

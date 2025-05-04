@@ -1,0 +1,347 @@
+# Template to create chatbot stack
+
+AWSTemplateFormatVersion: '2010-09-09'
+Description: Communication du Chatbot
+Transform: 'AWS::LanguageExtensions'
+Parameters:
+  ECSServiceName:
+    Type: String
+    Description: The name of the ECS service
+    Default: my-ecs-service
+  ECSClusterName:
+    Type: String
+    Description: The name of the ECS cluster
+    Default: my-ecs-cluster
+  TaskDefinitionName:
+    Type: String
+    Description: The task definition to deploy the stack to
+    Default: my-task-definition
+  Environment:
+    Type: String
+    Default: poc
+    AllowedValues:
+    - poc
+    - test
+    - prod
+    Description: The environment to deploy the stack to
+  ECSSecurityGroupName:
+    Type: String
+    Description: The security group to deploy the stack to
+    Default: my-security-group
+  ELBSecurityGroupName:
+    Type: String
+    Description: The security group to deploy the stack to
+    Default: my-elb-security-group
+  EFSSecurityGroupName:
+    Type: String
+    Description: The security group to deploy the stack to
+    Default: my-efs-security-group
+  ECSLoadBalancerName:
+    Type: String
+    Description: The load balancer to deploy the stack to
+    Default: my-load-balancer
+  ECSTargetGroupName:
+    Type: String
+    Description: The target group to deploy the stack to
+    Default: my-target-group
+  ECRRepositoryName:
+    Type: String
+    Description: The ECR repository to deploy the stack to
+    Default: my-ecr-repo
+  StorageFileName:
+    Type: String
+    Description: Persistent storage for container
+    Default: my-storage-file
+  Count:
+    Type: String
+    Description: Number of tasks to deploy
+    Default: "1"
+  LoadBalancer:
+    Type: String
+    Description: The load balancer to deploy the stack to
+    Default: my-load-balancer
+  VPC:
+    Type: String
+    Default: vpc-09ae4b8ea8204900e
+  Subnet1:
+    Type: String 
+    Default: subnet-056ce6c4251e19a61
+  Subnet2:
+    Type: String 
+    Default: subnet-01cf8a8c1484f844c
+
+Resources:
+  #ECS Cluster
+  ECSCluster:
+    Type: AWS::ECS::Cluster
+    Properties:
+      ClusterName:
+        Fn::Join:
+        - '-'
+        - - Ref: ECSClusterName
+          - Ref: Environment
+      # ClusterSettings:
+      # - Name: containerInsights
+      #   Value: enhanced # Maybe simple enabled?
+      ServiceConnectDefaults:
+        Namespace: jenkins-course
+      Tags:
+      - Key: Name
+        Value: jenkins-course
+
+  'Fn::ForEach::ECSServiceLoop':
+  - CountService
+  - Fn::Split:
+    - ','
+    - Ref: Count
+  - ECSService${CountService}:
+      Type: AWS::ECS::Service
+      DependsOn:
+      - ECSCluster
+      - ECSTargetGroup
+      - ECSLoadBalancer
+      - ECSSecurityGroup
+      - ELBListener
+      Properties:
+        AvailabilityZoneRebalancing: ENABLED
+        Cluster:
+          Ref: ECSCluster
+        DesiredCount: 1
+        LaunchType: FARGATE
+        LoadBalancers:
+        - ContainerName: frontend
+          ContainerPort: 5000
+          TargetGroupArn:
+            Ref: ECSTargetGroup
+        NetworkConfiguration:
+          AwsvpcConfiguration:
+            AssignPublicIp: ENABLED # TO be changed to DISABLED
+            SecurityGroups:
+            - Ref: ECSSecurityGroup
+            Subnets:
+            - Ref: Subnet1
+            - Ref: Subnet2
+        ServiceConnectConfiguration:
+          Enabled: true
+          LogConfiguration:
+            LogDriver: awslogs
+            Options:
+              awslogs-group: /ecs/jenkins-course
+              awslogs-create-group: true
+              awslogs-region: ca-central-1
+              awslogs-stream-prefix: ecs
+          Namespace: jenkins-course
+        ServiceName:
+          Fn::Join:
+          - '-'
+          - - Ref: ECSServiceName
+            - Ref: Environment
+            - Ref: CountService
+        Tags:
+        - Key: Name
+          Value: jenkins-course
+        TaskDefinition:
+          Ref:
+            Fn::Join:
+            - ''
+            - - ECSTaskDefinition
+              - Ref: CountService
+
+  'Fn::ForEach::TaskDefinitionLoop':
+  - CountTask
+  - Fn::Split:
+    - ','
+    - Ref: Count
+  - ECSTaskDefinition${CountTask}:
+      Type: AWS::ECS::TaskDefinition
+      # DependsOn:
+      # - EFSFileSystem
+      # - ECRRepository
+      Properties:
+        ContainerDefinitions:
+        - Name: frontend
+          Cpu: 0
+          Essential: true
+          Image: 891377281461.dkr.ecr.ca-central-1.amazonaws.com/my-ecr-repo:latest # TODO: Update with the correct image
+          LogConfiguration:
+            logDriver: awslogs
+            options:
+              awslogs-group: /ecs/jenkins-course
+              awslogs-region: ca-central-1
+              awslogs-stream-prefix: ecs
+          #Memory: 256
+          PortMappings:
+          - ContainerPort: 5000
+            HostPort: 5000
+            Protocol: tcp
+        Cpu: 256
+        ExecutionRoleArn:
+          Ref: ECSTaskExecutionRole
+        Family:
+          Fn::Join:
+          - '-'
+          - - Ref: TaskDefinitionName
+            - Ref: Environment
+            - Ref: CountTask
+        Memory: 512
+        NetworkMode: awsvpc
+        RequiresCompatibilities:
+        - FARGATE
+        Tags:
+        - Key: Name
+          Value: jenkins-course
+        TaskRoleArn:
+          Ref: ECSTaskExecutionRole
+
+  ECSTaskExecutionRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+        - Effect: Allow
+          Principal:
+            Service: ecs-tasks.amazonaws.com
+          Action: sts:AssumeRole
+      ManagedPolicyArns:
+      - arn:aws:iam::aws:policy/service-role/AmazonECSTaskExecutionRolePolicy
+      Policies:
+      - PolicyName: ECSExecutionPolicy-deve
+        PolicyDocument:
+          Version: '2012-10-17'
+          Statement:
+          - Effect: Allow
+            Action:
+            - logs:CreateLogGroup
+            - logs:CreateLogStream
+            - logs:PutLogEvents
+            Resource: "*"
+      - PolicyName: GetImage
+        PolicyDocument: 
+            Version: '2012-10-17'
+            Statement:
+            - Effect: Allow
+              Action:
+              - ecr:GetDownloadUrlForLayer
+              - ecr:BatchGetImage
+              - ecr:BatchCheckLayerAvailability
+              - ecr:GetAuthorizationToken
+              Resource: "*"
+
+  ECSSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: ECS Security Group
+      GroupName:
+        Fn::Join:
+        - "-"
+        - - Ref: ECSSecurityGroupName
+          - Ref: Environment
+      SecurityGroupIngress:
+      - IpProtocol: tcp
+        FromPort: 5000
+        ToPort: 5000
+        SourceSecurityGroupId:
+          Ref: ELBSecurityGroup
+      - IpProtocol: tcp
+        FromPort: 5000
+        ToPort: 5000
+        CidrIp: 0.0.0.0/0
+      Tags:
+      - Key: Name
+        Value: jenkins-course
+      VpcId:
+        Ref: VPC
+
+  ELBSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: ECS Security Group
+      GroupName:
+        Fn::Join:
+        - "-"
+        - - Ref: ELBSecurityGroupName
+          - Ref: Environment
+      SecurityGroupIngress:
+      - IpProtocol: tcp
+        FromPort: 5000
+        ToPort: 5000
+        CidrIp: 0.0.0.0/0
+      - IpProtocol: tcp
+        FromPort: 80
+        ToPort: 80
+        CidrIp: 0.0.0.0/0
+      Tags:
+      - Key: Name
+        Value: jenkins-course
+      VpcId:
+        Ref: VPC
+
+  # # ECS Load Balancer
+  ECSLoadBalancer:
+    Type: AWS::ElasticLoadBalancingV2::LoadBalancer
+    Properties:
+      Name:
+        Fn::Join:
+        - "-"
+        - - Ref: ECSLoadBalancerName
+          - Ref: Environment
+      SecurityGroups:
+      - Ref: ELBSecurityGroup
+      Subnets:
+      - Ref: Subnet1
+      - Ref: Subnet2
+      Tags:
+      - Key: Name
+        Value: jenkins-course
+      Type: application
+
+  # # ECS Target Group
+  ECSTargetGroup:
+    Type: AWS::ElasticLoadBalancingV2::TargetGroup
+    Properties:
+      Name:
+        Fn::Join:
+        - "-"
+        - - Ref: ECSTargetGroupName
+          - Ref: Environment
+      Port: 5000
+      Protocol: HTTP
+      ProtocolVersion: HTTP1
+      Tags:
+      - Key: Name
+        Value: jenkins-course
+      TargetType: ip
+      UnhealthyThresholdCount: 2
+      VpcId:
+        Ref: VPC
+
+  # #ELB Listener
+  ELBListener:
+    Type: AWS::ElasticLoadBalancingV2::Listener
+    Properties:
+      DefaultActions:
+      - Type: forward
+        TargetGroupArn:
+          Ref: ECSTargetGroup
+      LoadBalancerArn:
+        Ref: ECSLoadBalancer
+      Port: 80
+      Protocol: HTTP
+
+  #ECR Repository
+  ECRRepository:
+    Type: AWS::ECR::Repository
+    Properties:
+      EmptyOnDelete: true
+      EncryptionConfiguration:
+        EncryptionType: AES256
+      ImageScanningConfiguration:
+        scanOnPush: true
+      #ImageTagMutability: IMMUTABLE
+      RepositoryName:
+        Ref: ECRRepositoryName
+      Tags:
+      - Key: Name
+        Value: jenkins-course
+      
