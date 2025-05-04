@@ -67,6 +67,17 @@ pipeline {
                 }
             }
         }
+        stage("Deploy to ECS") {
+            steps {
+                withCredentials([aws(accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'aws-credentials', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY')]) {
+                    script {
+                        sh """
+                            aws ecs update-service --force-new-deployment --service my-ecs-service-poc-1 --task-definition my-task-definition-poc-1 --cluster my-ecs-cluster-poc
+                        """
+                    }
+                }
+            }
+        }
 
     }
 }
