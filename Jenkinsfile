@@ -16,11 +16,9 @@ pipeline {
         stage('Build Docker Image') {
             steps {
                 script {
-                    sh """
-                        echo Build Docker Image
-                        cd AWS/project/python-three-tier-app/frontend/            
-                    """
-                    dockerBuild("${params.IMAGE_FRONTEND_NAME}", "${params.ACCOUNT_ID}", "${params.IMAGE_TAG}", "${params.AWS_REGION}", "${params.DOCKERHUB_USER}" )
+                    dir('AWS/project/python-three-tier-app/frontend') {
+                        dockerBuild("${params.IMAGE_FRONTEND_NAME}", "${params.ACCOUNT_ID}", "${params.IMAGE_TAG}", "${params.AWS_REGION}", "${params.DOCKERHUB_USER}")
+                    }
                 }
                 
             }
