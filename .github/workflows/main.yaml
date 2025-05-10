@@ -59,6 +59,14 @@ jobs:
           aws ecr get-login-password --region ${{ env.AWS_REGION }} | docker login --username AWS --password-stdin ${{ env.AWS_ACCOUNT_ID }}.dkr.ecr.${{ env.AWS_REGION }}.amazonaws.com
           docker push ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ env.AWS_REGION }}.amazonaws.com/my-ecr-repo:latest
 
+  Deploy:
+    runs-on: ubuntu-latest
+    needs: Push-image
+    steps:
+      - name: Deploy on ECS 
+        run: | 
+          aws ecs update-service --force-new-deployment --service my-ecs-service-poc-1 --task-definition my-task-definition-poc-1 --cluster my-ecs-cluster-poc
+
 
 
 
