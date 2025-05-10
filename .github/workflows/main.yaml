@@ -1,0 +1,21 @@
+name: Pipiple to deploy frontend app 
+
+on:
+  push:
+    branches:
+      - main
+    
+jobs:
+  build-image:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code 
+        run: | 
+          git clone https://github.com/franklinfoko/devops-path.git
+      - name: Build docker image
+        run: | 
+          docker build -t frontend-image:latest AWS/project/python-three-tier-app/frontend/
+          doker images
+          
+
+   

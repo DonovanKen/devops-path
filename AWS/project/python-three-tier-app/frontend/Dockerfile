@@ -1,5 +1,4 @@
-# Use a lightweight Python image as the base image
-FROM python:3.9-alpine as base
+FROM python:3.13-alpine as base
 
 # Install build dependencies
 RUN apk add --no-cache gcc musl-dev libffi-dev
