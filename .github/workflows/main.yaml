@@ -18,13 +18,12 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout Code 
-        run: | 
-          git clone https://github.com/franklinfoko/devops-path.git
-          ls -l
+        uses: actions/checkout@v4
 
       - name: Build docker image
         run: | 
-          docker build -t ${{env.IMAGE_FRONTEND_NAME}}:${{env.IMAGE_TAG}} devops-path/AWS/project/python-three-tier-app/frontend/
+          ls -l
+          docker build -t ${{env.IMAGE_FRONTEND_NAME}}:${{env.IMAGE_TAG}} AWS/project/python-three-tier-app/frontend/
           docker images
       - name: Save Docker Image
         run: |
