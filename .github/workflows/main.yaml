@@ -15,7 +15,7 @@ jobs:
           ls -l
       - name: Build docker image
         run: | 
-          docker build -t frontend-image:latest devops-path/AWS/project/python-three-tier-app/frontend/
+          docker build -t ${{env.IMAGE_FRONTEND_NAME}}:${{env.IMAGE_TAG}} devops-path/AWS/project/python-three-tier-app/frontend/
           docker images
       - name: Test Image
         run: |
@@ -26,7 +26,17 @@ jobs:
           export IP_CONTAINER=$(docker inspect -f '{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}' frontend-container )
           curl -I http://$IP_CONTAINER:5000
 
-          docker rm -f frontend-container
+  #         docker rm -f frontend-container
+
+  # Push-image:
+  #   runs-on: ubuntu-latest
+  #   steps:
+  #     - name: Push Image on ECR 
+  #       run: |
+  #         
+  #         aws ecr get-login-password --region ca-central-1 | docker login --username AWS --password-stdin 891377281461.dkr.ecr.ca-central-1.amazonaws.com
+  #         docker tag frontend-image:latest 891377281461.dkr.ecr.ca-central-1.amazonaws.com/my-ecr-repo:latest
+  #         docker push 891377281461.dkr.ecr.ca-central-1.amazonaws.com/my-ecr-repo:latest
 
 
 
