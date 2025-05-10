@@ -17,6 +17,35 @@ jobs:
         run: | 
           docker build -t frontend-image:latest devops-path/AWS/project/python-three-tier-app/frontend/
           docker images
+      - name: Test Image
+        run: |
+          echo Test acceptance
+
+          docker run -d --name frontend-container frontend-image:latest
+          sleep 5
+          export IP_CONTAINER=\$(docker inspect -f '{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}' ${params.CONTAINER_NAME})
+          curl -I http://\$IP_CONTAINER:5000
+
+          docker rm -f frontend-container
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+      # - name: Save Docker Image
+      #   run: |
+      #     echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u $GITHUB_ACTOR --password-stdin
+      #     docker tag frontend-image:latest ghcr.io/${{ github.repository_owner }}/frontend-image:latest
+      #     docker push ghcr.io/${{ github.repository_owner }}/frontend-image:latest
           
 
    
