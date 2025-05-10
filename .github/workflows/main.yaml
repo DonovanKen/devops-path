@@ -12,9 +12,10 @@ jobs:
       - name: Checkout Code 
         run: | 
           git clone https://github.com/franklinfoko/devops-path.git
+          ls -l
       - name: Build docker image
         run: | 
-          docker build -t frontend-image:latest AWS/project/python-three-tier-app/frontend/
+          docker build -t frontend-image:latest devops-path/AWS/project/python-three-tier-app/frontend/
           doker images
           
 
