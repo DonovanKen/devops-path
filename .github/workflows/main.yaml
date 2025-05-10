@@ -16,7 +16,7 @@ jobs:
       - name: Build docker image
         run: | 
           docker build -t frontend-image:latest devops-path/AWS/project/python-three-tier-app/frontend/
-          doker images
+          docker images
           
 
    
