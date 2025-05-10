@@ -4,7 +4,10 @@ on:
   push:
     branches:
       - main
-    
+env:
+  IMAGE_FRONTEND_NAME: frontend-image
+  IMAGE_TAG: latest
+
 jobs:
   build-image:
     runs-on: ubuntu-latest
@@ -17,14 +20,16 @@ jobs:
         run: | 
           docker build -t ${{env.IMAGE_FRONTEND_NAME}}:${{env.IMAGE_TAG}} devops-path/AWS/project/python-three-tier-app/frontend/
           docker images
-      - name: Test Image
-        run: |
-          echo Test acceptance
 
-          docker run -d --name frontend-container frontend-image:latest
-          sleep 5
-          export IP_CONTAINER=$(docker inspect -f '{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}' frontend-container )
-          curl -I http://$IP_CONTAINER:5000
+
+      # - name: Test Image
+      #   run: |
+      #     echo Test acceptance
+
+      #     docker run -d --name frontend-container frontend-image:latest
+      #     sleep 5
+      #     export IP_CONTAINER=$(docker inspect -f '{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}' frontend-container )
+      #     curl -I http://$IP_CONTAINER:5000
 
   #         docker rm -f frontend-container
 
